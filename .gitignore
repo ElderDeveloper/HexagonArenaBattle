@@ -1,6 +1,9 @@
 # Visual Studio 2015 user specific files
 .vs/
 
+# Rider Specific Files
+.idea/
+
 # Compiled Object files
 *.slo
 *.lo
@@ -35,11 +38,13 @@
 *.xcodeproj
 *.xcworkspace
 *.sln
+*.sln.DotSettings.user
 *.suo
 *.opensdf
 *.sdf
 *.VC.db
 *.VC.opendb
+*.vsconfig
 
 # Precompiled Assets
 SourceArt/**/*.png
