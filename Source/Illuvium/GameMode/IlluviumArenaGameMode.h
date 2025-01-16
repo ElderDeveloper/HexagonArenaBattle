@@ -21,6 +21,12 @@ public:
 	UPROPERTY(EditDefaultsOnly , Category = "Path")
 	float PathLoopInterval = 1.f;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Character")
+	int32 CharacterMinHealth = 2;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Character")
+	int32 CharacterMaxHealth = 5;
+
 	UFUNCTION(BlueprintCallable)
 	void SpawnHexGridManager();
 

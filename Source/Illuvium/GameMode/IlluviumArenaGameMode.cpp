@@ -5,6 +5,7 @@
 #include "Illuvium/Character/GridCharacter.h"
 #include "Illuvium/Grid/HexGridManager.h"
 #include "Illuvium/Grid/HexTile.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
 
@@ -53,6 +54,7 @@ void AIlluviumArenaGameMode::SpawnGridCharacters()
 					GridCharacter->AssignTile(Tile);
 					Tile->SetOccupyingActor(GridCharacter);
 				}
+				GridCharacter->SetMaxHealth(UKismetMathLibrary::RandomIntegerInRange(CharacterMinHealth,CharacterMaxHealth));
 			}
 		}
 	}

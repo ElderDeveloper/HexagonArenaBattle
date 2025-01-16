@@ -44,6 +44,10 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void AssignTile(AHexTile* Tile);
 
+	// This function will modify the MaxHealth and CurrentHealth of the Character
+	UFUNCTION(BlueprintCallable)
+	void SetMaxHealth(uint8 NewMaxHealth) { MaxHealth = NewMaxHealth; CurrentHealth = MaxHealth; }
+
 protected:
 
 	UPROPERTY(Replicated)
