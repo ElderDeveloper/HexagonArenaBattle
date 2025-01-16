@@ -18,11 +18,17 @@ class ILLUVIUM_API AIlluviumArenaGameMode : public AGameModeBase
 public:
 	AIlluviumArenaGameMode();
 
+	UPROPERTY(EditDefaultsOnly , Category = "Path")
+	float PathLoopInterval = 1.f;
+
 	UFUNCTION(BlueprintCallable)
 	void SpawnHexGridManager();
 
 	UFUNCTION(BlueprintCallable)
 	void SpawnGridCharacters();
+
+	UFUNCTION(BlueprintCallable)
+	void RemoveCharacterFromList(AGridCharacter* Character);
 
 protected:
 
@@ -52,16 +58,12 @@ protected:
 
 	UPROPERTY(Replicated)
 	FIntPoint TeamCharacterCount;
-
 	void AddCharacterToTeam(AGridCharacter* Character);
-
-	UPROPERTY(EditDefaultsOnly , Category = "Path")
-	float PathLoopInterval = 1.f;
+	
 	FTimerHandle GamePathTimerHandle;
 	void GeneratePathForGridCharacters();
 	void FindClosestEnemies();
 	
-	virtual void PostLogin(APlayerController* NewPlayer) override;
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	 

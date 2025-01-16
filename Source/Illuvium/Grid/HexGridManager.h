@@ -66,7 +66,7 @@ public:
 
 protected:
 	TSet<AHexTile*> HexGridSet;
-
+	
 	float GetHeuristicCost(const AHexTile* TileA, const AHexTile* TileB) const;
 	float GetDistanceCost(const AHexTile* TileA, const AHexTile* TileB) const;
 	AHexTile* GetTileWithLowestFScore(const TArray<AHexTile*>& OpenSet, const TMap<AHexTile*, float>& FScore) const;
@@ -76,7 +76,6 @@ protected:
 
 public:
 	
-
 	UFUNCTION(BlueprintPure, Category="HexGrid")
 	FVector GetRandomHexTileLocation(const float AddZPosition = 0) const;
 

@@ -1,9 +1,12 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "GridCharacter.h"
+
+#include "Illuvium/GameMode/IlluviumArenaGameMode.h"
 #include "Illuvium/Grid/HexTile.h"
 #include "Illuvium/Grid/HexGridManager.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
 
 
@@ -14,6 +17,7 @@ AGridCharacter::AGridCharacter()
 	PrimaryActorTick.bCanEverTick = true;
 	SetReplicates(true);
 }
+
 
 
 void AGridCharacter::AssignTile(AHexTile* Tile)
@@ -32,17 +36,12 @@ void AGridCharacter::OnRep_Team()
 }
 
 
-void AGridCharacter::OnRep_Enemy()
-{
-}
-
-
-void AGridCharacter::OnRep_Path()
+void AGridCharacter::AssignCurrentHexTile(bool ClearCurrentTile)
 {
 	// When Path Num is 1 it means the character is on the destination tile
-	if (Path.Num() > 2 )
+	if (Path.Num() > 2)
 	{
-		if (CurrentHexTile)
+		if (CurrentHexTile && ClearCurrentTile)
 		{
 			CurrentHexTile->ClearOccupyingActor();
 		}
@@ -50,18 +49,109 @@ void AGridCharacter::OnRep_Path()
 		if (CurrentHexTile)
 		{
 			CurrentHexTile->SetOccupyingActor(this);
-			//SetActorLocation(CurrentHexTile->GetActorLocation() + CharacterRelativePositionOnTile);
-			TargetGridLocation = CurrentHexTile->GetActorLocation() + CharacterRelativePositionOnTile;
-			StartLocation = GetActorLocation();
-			Alpha = 0.f;
 		}
+	}
+	else if (Path.Num() >= 1)
+	{
+		CurrentHexTile = Path[0];
 	}
 }
 
 
-void AGridCharacter::BeginPlay()
+bool AGridCharacter::CheckNeighbourTilesForEnemy()
 {
-	Super::BeginPlay();
+	if (HexGridManager && CurrentHexTile && ClosestEnemy)
+	{
+		TArray<AHexTile*> NeighbourHexTiles = HexGridManager->GetNeighbourHexTiles(CurrentHexTile->HexGridPosition);
+		for (AHexTile* Tile : NeighbourHexTiles)
+		{
+			if (Tile->GetOccupyingActor() && Tile->GetOccupyingActor() == ClosestEnemy)
+			{
+				if (!GetWorld()->GetTimerManager().IsTimerActive(ApplyDamageTimerHandle))
+				{
+					GetWorld()->GetTimerManager().SetTimer( ApplyDamageTimerHandle, this, &AGridCharacter::ApplyDamageToClosestEnemy, 3.f, true);
+				}
+				return true;
+			}
+		}
+	}
+	if (GetWorld()->GetTimerManager().IsTimerActive(ApplyDamageTimerHandle))
+	{
+		GetWorld()->GetTimerManager().ClearTimer(ApplyDamageTimerHandle);
+	}
+	return false;
+}
+
+
+void AGridCharacter::SetPath(const TArray<AHexTile*>& NewPath)
+{
+	Path = NewPath;
+	if(HasAuthority())
+		OnRep_Path();
+}
+
+
+void AGridCharacter::OnRep_Path()
+{
+	AssignCurrentHexTile(true);
+	
+	if (CurrentHexTile)
+	{
+		StartLocation = GetActorLocation();
+		TargetGridLocation = CurrentHexTile->GetActorLocation() + CharacterRelativePositionOnTile;
+
+		if (HasAuthority())
+		{
+			SetActorLocation(TargetGridLocation);
+		}
+		CheckNeighbourTilesForEnemy();
+	}
+}
+
+
+void AGridCharacter::OnRep_CurrentHealth()
+{
+	if (CurrentHealth <= 0)
+	{
+		if (CurrentHexTile)
+		{
+			CurrentHexTile->ClearOccupyingActor();
+		}
+		Destroy();
+	}
+	else
+	{
+		OnTookDamage(LastTakenDamage,CurrentHealth,MaxHealth);
+	}
+	
+}
+
+
+void AGridCharacter::ApplyDamageToClosestEnemy()
+{
+	if (CheckNeighbourTilesForEnemy())
+	{
+		ClosestEnemy->ReceiveDamage(1);
+		OnApplyDamage(ClosestEnemy,1);
+	}
+}
+
+
+void AGridCharacter::ReceiveDamage(uint8 DamageTaken)
+{
+	CurrentHealth = FMath::Clamp(CurrentHealth - DamageTaken, 0, MaxHealth);
+	LastTakenDamage = DamageTaken;
+	if (HasAuthority())
+	{
+		if (CurrentHealth <= 0)
+		{
+			if (const auto GM = Cast<AIlluviumArenaGameMode>(GetWorld()->GetAuthGameMode()))
+			{
+				GM->RemoveCharacterFromList(this);
+			}
+		}
+		OnRep_CurrentHealth();
+	}
 }
 
 
@@ -69,14 +159,16 @@ void AGridCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (!HasAuthority() && TargetGridLocation != FVector::ZeroVector)
-	{
-		Alpha = FMath::Clamp(Alpha+DeltaTime*9/10, 0.f, 1.f);
-		SetActorLocation(UKismetMathLibrary::VLerp(StartLocation,TargetGridLocation,Alpha));
-	}
 	if (CurrentHexTile)
 	{
-		DrawDebugSphere(GetWorld(), CurrentHexTile->GetActorLocation(), 50.f, 12, FColor::Green, false, 0.1f);
+		if (!HasAuthority())
+		{
+			FVector ForwardVector = TargetGridLocation-GetActorLocation();
+			if (ForwardVector.SquaredLength() > 20.f)
+			{
+				AddActorLocalOffset(ForwardVector.GetSafeNormal()*DeltaTime*MoveSpeed);
+			}
+		}
 	}
 }
 
@@ -87,4 +179,6 @@ void AGridCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME(AGridCharacter, ClosestEnemy);
 	DOREPLIFETIME(AGridCharacter, Path);
 	DOREPLIFETIME(AGridCharacter, Team);
+	DOREPLIFETIME(AGridCharacter, CurrentHealth);
+	DOREPLIFETIME(AGridCharacter, LastTakenDamage);
 }

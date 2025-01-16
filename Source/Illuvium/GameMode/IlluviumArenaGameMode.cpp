@@ -5,6 +5,7 @@
 #include "Illuvium/Character/GridCharacter.h"
 #include "Illuvium/Grid/HexGridManager.h"
 #include "Illuvium/Grid/HexTile.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
 
 
@@ -58,6 +59,28 @@ void AIlluviumArenaGameMode::SpawnGridCharacters()
 }
 
 
+void AIlluviumArenaGameMode::RemoveCharacterFromList(AGridCharacter* Character)
+{
+	if (Character)
+	{
+		if (Character->GetTeam() == EGridCharacterTeam::TeamBlue)
+		{
+			BlueTeamCharacters.Remove(Character);
+			TeamCharacterCount.X--;
+		}
+		else
+		{
+			RedTeamCharacters.Remove(Character);
+			TeamCharacterCount.Y--;
+		}
+		GridCharacters.Remove(Character);
+	}
+
+	// Immediately generate path for remaining characters to avoid null references
+	GeneratePathForGridCharacters();
+}
+
+
 void AIlluviumArenaGameMode::OnRep_HexGridManager()
 {
 	if (HexGridManager)
@@ -91,7 +114,7 @@ void AIlluviumArenaGameMode::GeneratePathForGridCharacters()
 {
 	FindClosestEnemies();
 	
-	for (AGridCharacter* GridCharacter : GridCharacters)
+	for (const auto& GridCharacter : GridCharacters)
 	{
 		if (GridCharacter)
 		{
@@ -107,8 +130,14 @@ void AIlluviumArenaGameMode::GeneratePathForGridCharacters()
 
 void AIlluviumArenaGameMode::FindClosestEnemies()
 {
-	for (AGridCharacter* GridCharacter : GridCharacters)
+	FString CharacterNum = FString::FromInt(GridCharacters.Num());
+	for (const auto& GridCharacter : GridCharacters)
 	{
+		if (!GridCharacter)
+			continue;
+		if (GridCharacter->IsPendingKillPending())
+			continue;
+		
 		AGridCharacter* ClosestEnemy = nullptr;
 		float ClosestDistance = TNumericLimits<float>::Max();
 
@@ -118,7 +147,7 @@ void AIlluviumArenaGameMode::FindClosestEnemies()
 			{
 				if (RedTeamCharacter)
 				{
-					float Distance = FVector::Dist(GridCharacter->GetActorLocation(), RedTeamCharacter->GetActorLocation());
+					float Distance = FVector::DistSquared(GridCharacter->GetActorLocation(), RedTeamCharacter->GetActorLocation());
 					if (Distance < ClosestDistance)
 					{
 						ClosestDistance = Distance;
@@ -134,7 +163,7 @@ void AIlluviumArenaGameMode::FindClosestEnemies()
 			{
 				if (BlueTeamCharacter)
 				{
-					float Distance = FVector::Dist(GridCharacter->GetActorLocation(), BlueTeamCharacter->GetActorLocation());
+					float Distance = FVector::DistSquared(GridCharacter->GetActorLocation(), BlueTeamCharacter->GetActorLocation());
 					if (Distance < ClosestDistance)
 					{
 						ClosestDistance = Distance;
@@ -146,21 +175,6 @@ void AIlluviumArenaGameMode::FindClosestEnemies()
 
 		GridCharacter->SetClosestEnemy(ClosestEnemy);
 	}
-}
-
-
-void AIlluviumArenaGameMode::PostLogin(APlayerController* NewPlayer)
-{
-	Super::PostLogin(NewPlayer);
-	/*
-	if (!HasAuthority())
-	{
-		if (HexGridManager)
-		{
-			OnRep_HexGridManager();
-		}
-	}
-	*/
 }
 
 
