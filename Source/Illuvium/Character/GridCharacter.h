@@ -21,7 +21,7 @@ enum class EGridCharacterTeam : uint8
 };
 
 UCLASS()
-class ILLUVIUM_API AGridCharacter : public AActor
+class ILLUVIUM_API AGridCharacter : public APawn
 {
 	GENERATED_BODY()
 
